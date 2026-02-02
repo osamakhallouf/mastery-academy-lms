@@ -1,0 +1,173 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+model Course {
+  id String @id @default(uuid())
+  userId String
+  title String @db.Text
+  author String?
+  description String? @db.Text
+  imageUrl String? @db.Text
+  price Float?
+  isPublished Boolean @default(false)
+
+  categoryId String?
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  chapters Chapter[]
+  attachments Attachment[]
+  purchases Purchase[]
+  leads Lead[]
+  corporateInquiries CorporateInquiry[]
+
+  createdAt DateTime @default(now())
+  updateAdt DateTime @updatedAt
+
+  @@index([categoryId])
+  //@@fulltest([title])
+}
+
+model Category{
+  id String @id @default(uuid())
+  name String @unique
+  course Course[]
+
+}
+
+model Attachment {
+  id String @id @default(uuid())
+  name String
+  url String @db.Text
+
+  courseId String
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createAt DateTime @default(now())
+  updateAt DateTime @updatedAt
+
+  @@index([courseId])
+}
+
+
+model Chapter {
+  id String @id @default(uuid())
+  title String
+  description String? @db.Text
+  videoUrl String? @db.Text
+  position Int
+  isPublished Boolean @default(false)
+  isFree Boolean @default(false)
+  content String?
+
+  muxData MuxData?
+  courseId String
+  course Course @relation(fields: [courseId] , references: [id] , onDelete: Cascade  )
+  userProgress UserProgress[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([courseId])
+}
+
+model MuxData {
+  id String @id @default(uuid())
+  assetId String
+  playbackId String?
+
+  chapterId String @unique
+  chapter Chapter @relation(fields: [chapterId] , references: [id] , onDelete: Cascade)
+}
+
+model UserProgress {
+  id String @id @default(uuid())
+  userId String
+
+  chapterId String 
+  chapter Chapter @relation(fields: [chapterId] , references: [id] , onDelete: Cascade)
+  
+  isCompleted Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chapterId])
+  @@unique([userId , chapterId])
+
+}
+
+model Purchase {
+  id String @id @default(uuid())
+  userId String
+
+  courseId String
+  course Course @relation(fields: [courseId], references: [id] , onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt()
+  @@unique([userId, courseId])
+  @@index([courseId])
+}
+ model StripeCustomer {
+  id String @id @default(uuid())
+  userId String @unique
+  StripeCustomerId String @unique
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ }
+ model Rating {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  rating    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  @@unique([userId, courseId])
+}
+
+model Lead {
+  id String @id @default(uuid())
+  name String
+  company String?
+  email String?
+  phone String
+  courseId String?
+  course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+}
+
+model CorporateInquiry {
+  id String @id @default(uuid())
+  name String
+  email String
+  companyName String
+  phone String
+  employeesCount String
+  location String
+  message String? @db.Text
+  courseId String?
+  course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  confirmationLetter ConfirmationLetter?
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+}
+
+model ConfirmationLetter {
+  id String @id @default(uuid())
+  inquiryId String @unique
+  inquiry CorporateInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  participants String[]
+  location String
+  time String
+  courseDate DateTime
+  totalFees String
+  createdAt DateTime @default(now())
+}
