@@ -3,41 +3,27 @@ import { NextResponse } from "next/server";
 
 import { getClientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 
-const publicRoutes = [
-  "/",
-  "/sign-in",
-  "/sign-up",
-  "/api/webhook",
-  "/courses/:path*",
-  "/api/uploadthing/:path*",
-];
-
 const authRateLimit = {
   limit: 10,
   windowMs: 60_000,
 };
 
-export default clerkMiddleware(
-  (_auth, req) => {
-    const pathname = req.nextUrl.pathname;
-    const isAuthRoute =
-      pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
+export default clerkMiddleware((_auth, req) => {
+  const pathname = req.nextUrl.pathname;
+  const isAuthRoute =
+    pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
 
-    if (isAuthRoute) {
-      const ip = req.ip || getClientIpFromHeaders(req.headers);
-      const rate = rateLimit(`auth:${ip}`, authRateLimit);
+  if (isAuthRoute) {
+    const ip = req.ip || getClientIpFromHeaders(req.headers);
+    const rate = rateLimit(`auth:${ip}`, authRateLimit);
 
-      if (!rate.success) {
-        return new NextResponse("Too many requests. Please try again later.", {
-          status: 429,
-        });
-      }
+    if (!rate.success) {
+      return new NextResponse("Too many requests. Please try again later.", {
+        status: 429,
+      });
     }
-  },
-  {
-    publicRoutes,
   }
-);
+});
 
 export const config = {
   matcher: [
