@@ -7,7 +7,7 @@ import { CoursesList } from "@/components/courses-list";
 import { InfoCard } from "./_components/info-card";
 
 
-export default async function Dashborad() {
+export default async function Dashboard() {
   const { userId } = auth();
 
   if (!userId) {
@@ -41,6 +41,3 @@ export default async function Dashborad() {
     </div>
   )
 }
-
-
-

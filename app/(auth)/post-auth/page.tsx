@@ -14,7 +14,7 @@ const PostAuthPage = () => {
     return redirect("/teacher/courses");
   }
 
-  return redirect("/");
+  return redirect("/dashboard");
 };
 
 export default PostAuthPage;
