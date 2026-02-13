@@ -1,53 +1,36 @@
-import { db } from "@/lib/db";
 import { SafeProfile } from "@/types";
-import { auth, currentUser } from "@clerk/nextjs/server"
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
-export default async function getSafeProfile() {
+export default async function getSafeProfile(): Promise<SafeProfile | null> {
   try {
-
     const { userId } = auth();
 
     if (!userId) {
-        return redirect("/");
+      return redirect("/");
     }
 
-    const currentProfile = await db.profile.findUnique({
-        where: {
-          userId,
-        },
-        select: {
-          id: true,
-          userId: true,
-          name: true,
-          imageUrl: true,
-          email: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-      
-      if (!currentProfile) {
-        return null;
-      }
-      
-      // Convert createdAt and updatedAt to ISO strings
-      const safeProfile: SafeProfile = {
-        ...currentProfile,
-        createdAt: currentProfile.createdAt.toISOString(),
-        updatedAt: currentProfile.updatedAt.toISOString(),
-      };
+    const user = await currentUser();
+    if (!user) {
+      return null;
+    }
 
-        // currentProfile is passed to client component and client components
-        // can only pass stringified JSON objects. So we need to convert   
-        // Date objects to ISO strings.
-        // The ... operator is used to copy all properties from currentProfile
-        // to a new object. We then overwrite the createdAt, updatedAt and
-        // emailVerified properties with their ISO string values.
+    const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || null;
+    const email = user.emailAddresses?.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? null;
+
+    const safeProfile: SafeProfile = {
+      id: user.id,
+      userId: user.id,
+      name,
+      imageUrl: user.imageUrl ?? null,
+      email,
+      role: null,
+      createdAt: new Date(user.createdAt).toISOString(),
+      updatedAt: new Date(user.updatedAt ?? user.createdAt).toISOString(),
+    };
+
     return safeProfile;
-  } catch (error: any) {
+  } catch {
     return null;
   }
 }
-
