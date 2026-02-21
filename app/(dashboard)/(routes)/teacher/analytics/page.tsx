@@ -5,18 +5,20 @@ import { getAnalytics } from '@/actions/get-analytics';
 import { DataCard } from './_components/data-card';
 import { Chart } from './_components/chart';
 
-const AnalyticsPage = async () => {
+interface AnalyticsPageProps {
+  searchParams: { page?: string; limit?: string };
+}
 
-    const { userId } = auth();
-    if (!userId) {
-        return redirect('/');
-    }
+const AnalyticsPage = async ({ searchParams }: AnalyticsPageProps) => {
+  const { userId } = auth();
+  if (!userId) {
+    return redirect("/");
+  }
 
-    const {
-        data,
-        totalRevenue,
-        totalSales,
-    } = await getAnalytics(userId);
+  const { data, totalRevenue, totalSales } = await getAnalytics(userId, {
+    page: searchParams.page ? Number(searchParams.page) : undefined,
+    limit: searchParams.limit ? Number(searchParams.limit) : undefined,
+  });
 
     return (
     <div className='p-6'>

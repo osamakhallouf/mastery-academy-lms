@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
 
 
@@ -13,7 +14,7 @@ export async function POST(
     const { title } = await req.json();
 
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const courseOwner = await db.course.findUnique({
@@ -24,7 +25,7 @@ export async function POST(
     });
 
     if (!courseOwner) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const lastChapter = await db.chapter.findFirst({
@@ -49,6 +50,6 @@ export async function POST(
     return NextResponse.json(chapter);
   } catch (error) {
     console.error("[CHAPTERS]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }

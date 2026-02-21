@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
 
 export async function PATCH(
@@ -11,7 +12,7 @@ export async function PATCH(
     const { userId } = auth();
 
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const course = await db.course.findUnique({
@@ -29,13 +30,13 @@ export async function PATCH(
     });
 
     if (!course) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     const hasPublishedChapter = course.chapters.some((chapter) => chapter.isPublished);
 
     if (!course.title || !course.description || !course.imageUrl || !course.categoryId || !hasPublishedChapter) {
-      return new NextResponse("Missing required fields", { status: 401 });
+      return apiError("Missing required fields", 400);
     }
 
     const publishedCourse = await db.course.update({
@@ -51,6 +52,6 @@ export async function PATCH(
     return NextResponse.json(publishedCourse);
   } catch (error) {
     console.error("[COURSE_ID_PUBLISH]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   } 
 }

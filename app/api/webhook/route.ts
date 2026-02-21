@@ -2,8 +2,10 @@ import Stripe from "stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { stripe } from "@/lib/stripe";
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import { stripe } from "@/lib/stripe";
 
 
 export async function POST(req: Request) {
@@ -16,10 +18,11 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      env.STRIPE_WEBHOOK_SECRET
     )
-  } catch (error: any) {
-    return new NextResponse(`Webhook Error: ${error.message}`, {status: 400 })
+  } catch (error) {
+    console.error("[STRIPE_WEBHOOK_ERROR]", error);
+    return apiError("Webhook signature verification failed", 400);
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
@@ -28,17 +31,35 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     if (!userId || !courseId) {
-      return new NextResponse(`Webhook Error: Missing metadata`, { status: 400 });
+      return apiError("Missing metadata", 400);
     }
 
-    await db.purchase.create({
-      data: {
-        courseId: courseId,
-        userId: userId,
+    const stripeSessionId = session.id;
+
+    await db.$transaction(async (tx) => {
+      const existingPurchase = await tx.purchase.findFirst({
+        where: {
+          OR: [
+            { stripeSessionId },
+            { userId, courseId },
+          ],
+        },
+      });
+
+      if (existingPurchase) {
+        return;
       }
+
+      await tx.purchase.create({
+        data: {
+          userId,
+          courseId,
+          stripeSessionId,
+        },
+      });
     });
   } else {
-    return new NextResponse(`Webhook Error: Unhandled event type ${event.type}`, { status: 200 })
+    return apiError(`Unhandled event type ${event.type}`, 200);
   }
 
   return new NextResponse(null, { status: 200 });

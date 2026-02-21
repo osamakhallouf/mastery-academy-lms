@@ -8,14 +8,14 @@ const authRateLimit = {
   windowMs: 60_000,
 };
 
-export default clerkMiddleware((_auth, req) => {
+export default clerkMiddleware(async (_auth, req) => {
   const pathname = req.nextUrl.pathname;
   const isAuthRoute =
     pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
 
   if (isAuthRoute) {
     const ip = req.ip || getClientIpFromHeaders(req.headers);
-    const rate = rateLimit(`auth:${ip}`, authRateLimit);
+    const rate = await rateLimit(`auth:${ip}`, authRateLimit);
 
     if (!rate.success) {
       return new NextResponse("Too many requests. Please try again later.", {

@@ -29,18 +29,31 @@ export const getChapter = async ({
         const chapter = await db.chapter.findUnique({
             where: {
                 id: chapterId,
+                courseId,
                 isPublished: true,
-            }
+            },
         });
 
         if (!chapter || !course) {
             throw new Error("Chapter or course not found");
-        } 
+        }
+
+        const purchase = await db.purchase.findUnique({
+            where: {
+                userId_courseId: {
+                    userId,
+                    courseId,
+                },
+            },
+        });
+
+        const hasAccessByPurchase = purchase !== null;
+        const hasAccessByFreeChapter = chapter.isFree === true;
+        const hasAccess = hasAccessByPurchase || hasAccessByFreeChapter;
 
         let muxData = null;
         let attachments: Attachment[] = [];
         let nextChapter: Chapter | null = null;
-        const hasAccess = chapter.isFree;
 
         if (hasAccess) {
             attachments = await db.attachment.findMany({

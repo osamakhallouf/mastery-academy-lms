@@ -1,6 +1,8 @@
-import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+
+import { apiError } from "@/lib/api-error";
+import { db } from "@/lib/db";
 import { isTeacher } from "@/lib/teacher";
 
 export async function POST(req: Request) {
@@ -8,7 +10,7 @@ export async function POST(req: Request) {
     const { userId } = auth();
 
     if (!userId || !isTeacher(userId)) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const body = await req.json();
@@ -54,7 +56,7 @@ export async function GET() {
     return NextResponse.json(categories);
   } catch (error) {
     console.error("[CATEGORIES_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }
 
@@ -63,7 +65,7 @@ export async function DELETE(req: Request) {
     const { userId } = auth();
 
     if (!userId || !isTeacher(userId)) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const body = await req.json();

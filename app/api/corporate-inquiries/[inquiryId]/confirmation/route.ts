@@ -1,37 +1,54 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
 import { generateConfirmationPdf } from "@/lib/confirmation-letter";
 import { sendResendEmail } from "@/lib/resend";
+import { isTeacher } from "@/lib/teacher";
+import {
+  validateRequest,
+  validationErrorResponse,
+} from "@/lib/validate-request";
 
-const parseParticipants = (value: unknown) => {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  }
-  if (typeof value === "string") {
-    return value
-      .split(/\r?\n/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-  return [];
-};
+const confirmationPostSchema = z.object({
+  participants: z
+    .union([z.array(z.string()), z.string()])
+    .transform((val) =>
+      Array.isArray(val)
+        ? val.map((item) => String(item).trim()).filter(Boolean)
+        : val
+            .split(/\r?\n/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+    ),
+  location: z.string().trim().min(1, "Location is required"),
+  time: z.string().trim().min(1, "Time is required"),
+  courseDate: z.string().trim().min(1, "Course date is required"),
+  totalFees: z.string().trim().min(1, "Total fees is required"),
+});
 
 export async function POST(
   req: Request,
   { params }: { params: { inquiryId: string } }
 ) {
   try {
-    const body = await req.json();
-    const participants = parseParticipants(body?.participants);
-    const location = String(body?.location ?? "").trim();
-    const time = String(body?.time ?? "").trim();
-    const courseDate = String(body?.courseDate ?? "").trim();
-    const totalFees = String(body?.totalFees ?? "").trim();
-
-    if (!location || !time || !courseDate || !totalFees) {
-      return new NextResponse("Invalid payload", { status: 400 });
+    const { userId } = auth();
+    if (!userId) {
+      return apiError("Unauthorized", 401);
     }
+    if (!isTeacher(userId)) {
+      return apiError("Forbidden", 403);
+    }
+
+    const validation = await validateRequest(confirmationPostSchema, req);
+    if (!validation.success) {
+      return validationErrorResponse(validation.error);
+    }
+
+    const { participants, location, time, courseDate, totalFees } =
+      validation.data;
 
     const inquiry = await db.corporateInquiry.findUnique({
       where: { id: params.inquiryId },
@@ -39,7 +56,7 @@ export async function POST(
     });
 
     if (!inquiry) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     const confirmation = await db.confirmationLetter.upsert({
@@ -94,7 +111,7 @@ export async function POST(
     });
   } catch (error) {
     console.error("[CONFIRMATION_LETTER_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }
 
@@ -103,6 +120,14 @@ export async function GET(
   { params }: { params: { inquiryId: string } }
 ) {
   try {
+    const { userId } = auth();
+    if (!userId) {
+      return apiError("Unauthorized", 401);
+    }
+    if (!isTeacher(userId)) {
+      return apiError("Forbidden", 403);
+    }
+
     const inquiry = await db.corporateInquiry.findUnique({
       where: { id: params.inquiryId },
       include: {
@@ -112,7 +137,7 @@ export async function GET(
     });
 
     if (!inquiry || !inquiry.confirmationLetter) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     const confirmation = inquiry.confirmationLetter;
@@ -134,6 +159,6 @@ export async function GET(
     });
   } catch (error) {
     console.error("[CONFIRMATION_LETTER_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }

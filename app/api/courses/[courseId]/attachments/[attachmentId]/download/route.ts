@@ -1,6 +1,8 @@
-import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+
+import { apiError } from "@/lib/api-error";
+import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(
@@ -11,18 +13,16 @@ export async function GET(
     const { userId } = auth();
 
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
-    const rate = rateLimit(`attachments:${userId}`, {
+    const rate = await rateLimit(`attachments:${userId}`, {
       limit: 10,
       windowMs: 60_000,
     });
 
     if (!rate.success) {
-      return new NextResponse("Too many requests. Please try again later.", {
-        status: 429,
-      });
+      return apiError("Too many requests. Please try again later.", 429);
     }
 
     const attachment = await db.attachment.findUnique({
@@ -40,7 +40,7 @@ export async function GET(
     });
 
     if (!attachment) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     const isOwner = attachment.course.userId === userId;
@@ -54,12 +54,12 @@ export async function GET(
     });
 
     if (!isOwner && !purchase) {
-      return new NextResponse("Forbidden", { status: 403 });
+      return apiError("Forbidden", 403);
     }
 
     return NextResponse.redirect(attachment.url);
   } catch (error) {
     console.error("[ATTACHMENT_DOWNLOAD]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }

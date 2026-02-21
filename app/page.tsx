@@ -5,6 +5,7 @@ import { SearchInput } from "@/components/search-input";
 import { getCourses } from "@/actions/get-courses";
 import { CoursesList } from "@/components/courses-list";
 import { PublicNavbar } from "@/components/public-navbar";
+import Image from "next/image";
 import Link from "next/link";
 import { Briefcase, Cpu, Landmark, ShieldCheck } from "lucide-react";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
@@ -14,6 +15,8 @@ interface HomePageProps {
   searchParams: {
     title?: string;
     categoryId?: string;
+    page?: string;
+    limit?: string;
   };
 }
 
@@ -28,10 +31,12 @@ const HomePage = async ({
     }
   });
 
-  const courses = await getCourses({
-    userId: userId || "",
+  const { courses, total, hasMore } = await getCourses({
+    userId: userId ?? "",
     title: searchParams.title,
     categoryId: searchParams.categoryId,
+    page: searchParams.page ? Number(searchParams.page) : undefined,
+    limit: searchParams.limit ? Number(searchParams.limit) : undefined,
   });
 
   const accreditationLogos = [
@@ -169,11 +174,13 @@ const HomePage = async ({
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 py-6">
               <div className="logo-marquee gap-6 px-6">
                 {[...trustLogos, ...trustLogos].map((logo, idx) => (
-                  <img
+                  <Image
                     key={`${logo.name}-${idx}`}
                     src={buildLogoSrc(logo.name, logo.color)}
                     alt={`${logo.name} logo`}
-                    loading="lazy"
+                    width={180}
+                    height={56}
+                    unoptimized
                     className="h-12 w-auto object-cover grayscale hover:grayscale-0 transition"
                   />
                 ))}

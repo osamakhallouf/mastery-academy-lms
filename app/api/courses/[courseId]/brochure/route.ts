@@ -1,7 +1,9 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 
 const sanitizeText = (value: string) =>
@@ -32,7 +34,8 @@ const escapePdfText = (text: string) =>
 
 const BROCHURE_TTL_MS = 10 * 60 * 1000;
 
-const getSigningSecret = () => process.env.BROCHURE_SIGNING_SECRET;
+/** Optional env: brochure signed URLs require BROCHURE_SIGNING_SECRET. */
+const getSigningSecret = () => env.BROCHURE_SIGNING_SECRET ?? undefined;
 
 const signDownload = (courseId: string, expires: number, secret: string) =>
   crypto
@@ -100,18 +103,18 @@ export async function GET(
 ) {
   try {
     const ip = getClientIpFromHeaders(req.headers);
-    const rate = rateLimit(`brochure:get:${ip}`, {
+    const rate = await rateLimit(`brochure:get:${ip}`, {
       limit: 10,
       windowMs: 60_000,
     });
 
     if (!rate.success) {
-      return new NextResponse("Too many requests", { status: 429 });
+      return apiError("Too many requests", 429);
     }
 
     const secret = getSigningSecret();
     if (!secret) {
-      return new NextResponse("Missing signing secret", { status: 500 });
+      return apiError("Missing signing secret", 500);
     }
 
     const { searchParams } = new URL(req.url);
@@ -120,15 +123,15 @@ export async function GET(
     const expires = expiresParam ? Number(expiresParam) : 0;
 
     if (!expires || !signature) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     if (Number.isNaN(expires) || Date.now() > expires) {
-      return new NextResponse("Link expired", { status: 401 });
+      return apiError("Link expired", 401);
     }
 
     if (!validateSignature(params.courseId, expires, signature, secret)) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     const course = await db.course.findUnique({
@@ -160,7 +163,7 @@ export async function GET(
     });
 
     if (!course) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     const learningPoints = course.chapters
@@ -204,7 +207,7 @@ export async function GET(
     });
   } catch (error) {
     console.error("[COURSE_BROCHURE]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }
 
@@ -214,13 +217,13 @@ export async function POST(
 ) {
   try {
     const ip = getClientIpFromHeaders(req.headers);
-    const rate = rateLimit(`brochure:post:${ip}`, {
+    const rate = await rateLimit(`brochure:post:${ip}`, {
       limit: 8,
       windowMs: 60_000,
     });
 
     if (!rate.success) {
-      return new NextResponse("Too many requests", { status: 429 });
+      return apiError("Too many requests", 429);
     }
 
     const body = await req.json();
@@ -230,7 +233,7 @@ export async function POST(
     const email = typeof body?.email === "string" ? body.email.trim() : "";
 
     if (!name || !phone) {
-      return new NextResponse("Invalid payload", { status: 400 });
+      return apiError("Invalid payload", 400);
     }
 
     const course = await db.course.findUnique({
@@ -245,7 +248,7 @@ export async function POST(
     });
 
     if (!course) {
-      return new NextResponse("Not found", { status: 404 });
+      return apiError("Not found", 404);
     }
 
     await db.lead.create({
@@ -265,7 +268,7 @@ export async function POST(
 
     const secret = getSigningSecret();
     if (!secret) {
-      return new NextResponse("Missing signing secret", { status: 500 });
+      return apiError("Missing signing secret", 500);
     }
 
     const expires = Date.now() + BROCHURE_TTL_MS;
@@ -277,6 +280,6 @@ export async function POST(
     });
   } catch (error) {
     console.error("[COURSE_BROCHURE_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }

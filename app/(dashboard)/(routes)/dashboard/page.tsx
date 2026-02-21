@@ -7,7 +7,13 @@ import { CoursesList } from "@/components/courses-list";
 import { InfoCard } from "./_components/info-card";
 
 
-export default async function Dashboard() {
+interface DashboardPageProps {
+  searchParams: { page?: string; limit?: string };
+}
+
+export default async function Dashboard({
+  searchParams,
+}: DashboardPageProps) {
   const { userId } = auth();
 
   if (!userId) {
@@ -15,9 +21,13 @@ export default async function Dashboard() {
   }
 
   const {
-    completedCourses,
-    coursesInProgress
-  } = await getDashboardCourses(userId);
+    items,
+    totalCompleted,
+    totalInProgress,
+  } = await getDashboardCourses(userId, {
+    page: searchParams.page ? Number(searchParams.page) : undefined,
+    limit: searchParams.limit ? Number(searchParams.limit) : undefined,
+  });
 
   return (
     <div className="p-6 space-y-4">
@@ -25,19 +35,16 @@ export default async function Dashboard() {
         <InfoCard
           icon={Clock}
           label="In Progress"
-          numberOfItems={coursesInProgress.length}
+          numberOfItems={totalInProgress}
         />
         <InfoCard
           icon={CheckCircle}
           label="Completed"
-          numberOfItems={completedCourses.length}
+          numberOfItems={totalCompleted}
           variant="success"
         />
       </div>
-      <CoursesList
-        items={[...coursesInProgress, ...completedCourses]}
-      />
-
+      <CoursesList items={items} />
     </div>
-  )
+  );
 }

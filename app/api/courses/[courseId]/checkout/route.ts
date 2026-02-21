@@ -1,9 +1,12 @@
-import { db } from "@/lib/db";
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
+
+import { apiError } from "@/lib/api-error";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
+import { stripe } from "@/lib/stripe";
 
 export async function POST(
     req: Request,
@@ -13,19 +16,17 @@ export async function POST(
         const user = await currentUser();
 
         if (!user || !user.id || !user.emailAddresses?.[0]?.emailAddress) {
-            console.error("Unauthorized request:", user);
-            return new NextResponse("Unauthorized", { status: 401 });
+            console.error("[CHECKOUT] Unauthorized");
+            return apiError("Unauthorized", 401);
         }
 
-        const rate = rateLimit(`checkout:${user.id}`, {
+        const rate = await rateLimit(`checkout:${user.id}`, {
             limit: 5,
             windowMs: 60 * 60 * 1000,
         });
 
         if (!rate.success) {
-            return new NextResponse("Too many requests. Please try again later.", {
-                status: 429,
-            });
+            return apiError("Too many requests. Please try again later.", 429);
         }
 
         const course = await db.course.findUnique({
@@ -36,8 +37,8 @@ export async function POST(
         });
 
         if (!course) {
-            console.error("Course not found:", params.courseId);
-            return new NextResponse("Not found", { status: 404 });
+            console.error("[CHECKOUT] Course not found");
+            return apiError("Not found", 404);
         }
 
         const purchase = await db.purchase.findUnique({
@@ -50,8 +51,8 @@ export async function POST(
         });
 
         if (purchase) {
-            console.error("Purchase already exists:", user.id, params.courseId);
-            return new NextResponse("Already purchased", { status: 400 });
+            console.error("[CHECKOUT] Purchase already exists");
+            return apiError("Already purchased", 400);
         }
 
         const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
@@ -94,8 +95,8 @@ export async function POST(
             customer: stripeCustomer.StripeCustomerId,
             line_items,
             mode: "payment",
-            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?success=1`,
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?canceled=1`,
+            success_url: `${env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?success=1`,
+            cancel_url: `${env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?canceled=1`,
             metadata: {
                 courseId: course.id,
                 userId: user.id,
@@ -105,7 +106,7 @@ export async function POST(
         return NextResponse.json({ url: session.url });
         
     } catch (error) {
-        console.error("Error during checkout process:", error);
-        return new NextResponse("Internal Error", { status: 500 });
+        console.error("[CHECKOUT] Internal error");
+        return apiError("Internal Error", 500);
     }
 }

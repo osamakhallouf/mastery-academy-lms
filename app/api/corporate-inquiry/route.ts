@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 import { sendResendEmail } from "@/lib/resend";
@@ -18,17 +19,29 @@ type InquiryPayload = {
 
 const sanitize = (value: string) => value.trim();
 
-const buildEmailHtml = (payload: Required<InquiryPayload>) => `
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const buildEmailHtml = (payload: Required<InquiryPayload>) => {
+  const e = escapeHtml;
+  return `
   <h2>New Corporate Training Inquiry</h2>
-  <p><strong>Course</strong>: ${payload.courseTitle}</p>
-  <p><strong>Company</strong>: ${payload.companyName}</p>
-  <p><strong>Employees</strong>: ${payload.employeesCount}</p>
-  <p><strong>Location</strong>: ${payload.location}</p>
-  <p><strong>Contact Name</strong>: ${payload.name}</p>
-  <p><strong>Email</strong>: ${payload.email}</p>
-  <p><strong>Phone</strong>: ${payload.phone}</p>
-  ${payload.message ? `<p><strong>Message</strong>: ${payload.message}</p>` : ""}
+  <p><strong>Course</strong>: ${e(payload.courseTitle)}</p>
+  <p><strong>Company</strong>: ${e(payload.companyName)}</p>
+  <p><strong>Employees</strong>: ${e(payload.employeesCount)}</p>
+  <p><strong>Location</strong>: ${e(payload.location)}</p>
+  <p><strong>Contact Name</strong>: ${e(payload.name)}</p>
+  <p><strong>Email</strong>: ${e(payload.email)}</p>
+  <p><strong>Phone</strong>: ${e(payload.phone)}</p>
+  ${payload.message ? `<p><strong>Message</strong>: ${e(payload.message)}</p>` : ""}
 `;
+};
 
 const sendAdminNotification = async (payload: Required<InquiryPayload>) => {
   const adminEmail = process.env.ADMIN_EMAIL;
@@ -48,13 +61,13 @@ const sendAdminNotification = async (payload: Required<InquiryPayload>) => {
 export async function POST(req: Request) {
   try {
     const ip = getClientIpFromHeaders(req.headers);
-    const rate = rateLimit(`corporate-inquiry:${ip}`, {
+    const rate = await rateLimit(`corporate-inquiry:${ip}`, {
       limit: 5,
       windowMs: 60_000,
     });
 
     if (!rate.success) {
-      return new NextResponse("Too many requests", { status: 429 });
+      return apiError("Too many requests", 429);
     }
 
     const body = (await req.json()) as InquiryPayload;
@@ -78,7 +91,7 @@ export async function POST(req: Request) {
       !payload.email ||
       !payload.phone
     ) {
-      return new NextResponse("Invalid payload", { status: 400 });
+      return apiError("Invalid payload", 400);
     }
 
     let resolvedCourseId: string | null = payload.courseId || null;
@@ -114,6 +127,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("[CORPORATE_INQUIRY]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return apiError("Internal Error", 500);
   }
 }

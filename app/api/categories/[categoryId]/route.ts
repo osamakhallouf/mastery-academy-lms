@@ -1,6 +1,8 @@
-import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+
+import { apiError } from "@/lib/api-error";
+import { db } from "@/lib/db";
 import { isTeacher } from "@/lib/teacher";
 
 export async function DELETE(
@@ -11,7 +13,7 @@ export async function DELETE(
     const { userId } = auth();
 
     if (!userId || !isTeacher(userId)) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return apiError("Unauthorized", 401);
     }
 
     // Check if category is used by any course
