@@ -3,10 +3,9 @@ import { Category, Chapter, Course } from "@prisma/client";
 
 import { parsePagination } from "@/lib/pagination";
 
-type CourseWithProgressWithCategory = Course & {
+type CourseWithCategory = Course & {
   category: Category;
   chapters: Chapter[];
-  progress: number | null;
 };
 
 export type GetDashboardCoursesParams = {
@@ -18,7 +17,7 @@ export type GetDashboardCoursesParams = {
 };
 
 export type GetDashboardCoursesResult = {
-  items: CourseWithProgressWithCategory[];
+  items: CourseWithCategory[];
   total: number;
   totalCompleted: number;
   totalInProgress: number;
@@ -48,48 +47,14 @@ export const getDashboardCourses = async (
       (p) => p.course
     ) as (Course & { category: Category; chapters: Chapter[] })[];
 
-    const allChapterIds = courses.flatMap((c) => c.chapters.map((ch) => ch.id));
-    const completedChapterIds = new Set<string>();
-
-    if (allChapterIds.length > 0) {
-      const progressRecords = await db.userProgress.findMany({
-        where: {
-          userId,
-          chapterId: { in: allChapterIds },
-          isCompleted: true,
-        },
-        select: { chapterId: true },
-      });
-      progressRecords.forEach((r) => completedChapterIds.add(r.chapterId));
-    }
-
-    const coursesWithProgress: CourseWithProgressWithCategory[] = courses.map(
-      (course) => {
-        const total = course.chapters.length;
-        const completed =
-          total === 0
-            ? 0
-            : course.chapters.filter((ch) => completedChapterIds.has(ch.id))
-                .length;
-        const progress =
-          total === 0 ? 0 : Math.round((completed / total) * 100);
-        return { ...course, progress };
-      }
-    );
-
-    const coursesInProgress = coursesWithProgress.filter(
-      (c) => (c.progress ?? 0) < 100
-    );
-    const completedCourses = coursesWithProgress.filter((c) => c.progress === 100);
-    const combined = [...coursesInProgress, ...completedCourses];
-    const total = combined.length;
-    const items = combined.slice(skip, skip + take);
+    const total = courses.length;
+    const items = courses.slice(skip, skip + take);
 
     return {
       items,
       total,
-      totalCompleted: completedCourses.length,
-      totalInProgress: coursesInProgress.length,
+      totalCompleted: 0,
+      totalInProgress: 0,
       hasMore: skip + items.length < total,
     };
   } catch (error) {

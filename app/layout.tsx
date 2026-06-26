@@ -36,6 +36,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL}
       signUpUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL}
       localization={clerkLocalization as never}
@@ -55,7 +56,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en">
+      <html suppressHydrationWarning>
         <body className={inter.className}>
           <ConfettiProvider />
           <ToastProvider />

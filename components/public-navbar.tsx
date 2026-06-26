@@ -1,20 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu } from "lucide-react";
+import { usePathname } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { NavbarRoutes } from "./navbar-routes";
-import { Logo } from "@/app/(dashboard)/_components/logo";
+import { Logo } from "@/app/[locale]/(dashboard)/_components/logo";
 import { RiWhatsappFill } from "react-icons/ri";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/search-input";
 import { MobileSearchToggle } from "@/components/mobile-search-toggle";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export const PublicNavbar = () => {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const t = useTranslations("nav");
+  const tCommon = useTranslations("common");
   const showSearch = pathname === "/" || pathname === "/search";
 
   return (
@@ -33,6 +37,7 @@ export const PublicNavbar = () => {
         )}
 
         <div className="ml-auto flex items-center gap-3 shrink-0">
+          <LanguageSwitcher />
           {showSearch && !menuOpen && (
             <div className="md:hidden">
               <MobileSearchToggle />
@@ -69,13 +74,13 @@ export const PublicNavbar = () => {
             <SheetContent side="right" className="bg-[#0f172a] text-white">
               <div className="flex flex-col gap-6 mt-8">
                 <Link href="/" className="text-sm font-medium hover:text-[#d4af37]">
-                  Home
+                  {tCommon("home")}
                 </Link>
                 <Link
                   href="/corporate-services"
                   className="text-sm font-medium hover:text-[#d4af37]"
                 >
-                  Corporate Services
+                  {t("corporateServices")}
                 </Link>
                 <a
                   href="https://wa.me/971557028756"

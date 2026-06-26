@@ -41,7 +41,15 @@ export async function PUT(
       },
     });
 
-    const hasAccess = chapter.isFree || purchase !== null;
+    const approvedBooking = await db.booking.findFirst({
+      where: {
+        userId,
+        courseId: params.courseId,
+        status: "approved",
+      },
+    });
+
+    const hasAccess = chapter.isFree || purchase !== null || approvedBooking !== null;
     if (!hasAccess) {
       return apiError("Access denied. Purchase the course or use a free chapter.", 403);
     }

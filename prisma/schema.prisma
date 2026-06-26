@@ -25,6 +25,8 @@ model Course {
   purchases Purchase[]
   leads Lead[]
   corporateInquiries CorporateInquiry[]
+  courseRuns CourseRun[]
+  bookings Booking[]
 
   createdAt DateTime @default(now())
   updateAdt DateTime @updatedAt
@@ -112,7 +114,44 @@ model Purchase {
   @@unique([userId, courseId])
   @@index([courseId])
 }
- model StripeCustomer {
+
+model CourseRun {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime?
+  location  String?  @db.Text
+  capacity  Int?
+  status    String   @default("draft")
+  bookings  Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([startDate])
+}
+
+model Booking {
+  id          String    @id @default(uuid())
+  userId      String
+  courseId    String
+  courseRunId String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseRun   CourseRun @relation(fields: [courseRunId], references: [id], onDelete: Cascade)
+  status      String    @default("pending")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseRunId])
+  @@index([courseRunId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model StripeCustomer {
   id String @id @default(uuid())
   userId String @unique
   StripeCustomerId String @unique
@@ -154,6 +193,8 @@ model CorporateInquiry {
   employeesCount String
   location String
   message String? @db.Text
+  /// Pipeline status for sales / CRM (New, Contacted, Proposal Sent, Closed / Won)
+  status String @default("New")
   courseId String?
   course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
   confirmationLetter ConfirmationLetter?

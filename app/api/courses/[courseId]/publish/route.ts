@@ -20,22 +20,13 @@ export async function PATCH(
         id: params.courseId,
         userId,
       },
-      include: {
-        chapters: {
-          include: {
-            muxData: true,
-          }
-        }
-      }
     });
 
     if (!course) {
       return apiError("Not found", 404);
     }
 
-    const hasPublishedChapter = course.chapters.some((chapter) => chapter.isPublished);
-
-    if (!course.title || !course.description || !course.imageUrl || !course.categoryId || !hasPublishedChapter) {
+    if (!course.title || !course.description || !course.imageUrl || !course.categoryId) {
       return apiError("Missing required fields", 400);
     }
 

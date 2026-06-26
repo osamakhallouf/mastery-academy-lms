@@ -16,7 +16,7 @@ const patchCourseSchema = z
     title: z.string().min(1).optional(),
     description: z.string().optional(),
     imageUrl: z.string().optional(),
-    price: z.number().min(0).optional(),
+    price: z.number().min(0).nullable().optional(),
     categoryId: z.string().uuid().nullable().optional(),
     isPublished: z.boolean().optional(),
   })

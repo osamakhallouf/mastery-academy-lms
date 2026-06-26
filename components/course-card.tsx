@@ -1,60 +1,42 @@
 import Image from "next/image";
-import Link from "next/link";
-import { BookOpen } from "lucide-react";
-
-import { IconBadge } from "@/components/icon-badge";
-import { formatPrice } from "@/lib/format";
+import { Link } from "@/i18n/navigation";
 
 interface CourseCardProps {
   id: string;
   title: string;
   imageUrl: string;
-  chaptersLength: number;
-  price: number;
-  progress: number | null;
   category: string;
-};
+}
 
 export const CourseCard = ({
   id,
   title,
   imageUrl,
-  chaptersLength,
-  price,
-  progress,
-  category
+  category,
 }: CourseCardProps) => {
   return (
     <Link href={`/courses/${id}`}>
-      <div className="group hover:shadow-sm transition overflow-hidden border rounded-lg p-3 h-full">
-        <div className="relative w-full aspect-video rounded-md overflow-hidden">
+      <div className="group overflow-hidden rounded-lg border-2 border-slate-200/80 bg-white shadow-sm transition hover:border-[#1e293b]/30 hover:shadow-md h-full flex flex-col">
+        <div className="relative w-full aspect-video overflow-hidden">
           <Image
             fill
-            className="object-cover"
+            className="object-cover transition group-hover:scale-[1.02]"
             alt={title}
             src={imageUrl}
+            sizes="(max-width: 768px) 100vw, 25vw"
           />
         </div>
-        <div className="flex flex-col pt-2">
-          <div className="text-lg md:text-base font-medium group-hover:text-sky-700 transition  dark:group-hover:text-sky-500  line-clamp-2">
+        <div className="flex flex-col p-4">
+          {category && (
+            <p className="text-xs font-medium uppercase tracking-wide text-[#d4af37] mb-1">
+              {category}
+            </p>
+          )}
+          <h3 className="text-base font-bold text-[#1e293b] line-clamp-2 group-hover:text-[#0f172a] transition">
             {title}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {category}
-          </p>
-          <div className="my-3 flex items-center gap-x-2 text-sm md:text-xs">
-            <div className="flex items-center gap-x-1 text-slate-500">
-              <IconBadge size="sm" icon={BookOpen} />
-              <span>
-                {chaptersLength} {chaptersLength === 1 ? "Chapter" : "Chapters"}
-              </span>
-            </div>
-          </div>
-          <p className="text-md md:text-sm font-medium text-slate-700 dark:text-slate-300">
-            {formatPrice(price)}
-          </p>
+          </h3>
         </div>
       </div>
     </Link>
-  )
-} 
+  );
+};

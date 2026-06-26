@@ -53,7 +53,15 @@ export async function GET(
       },
     });
 
-    if (!isOwner && !purchase) {
+    const approvedBooking = await db.booking.findFirst({
+      where: {
+        userId,
+        courseId: params.courseId,
+        status: "approved",
+      },
+    });
+
+    if (!isOwner && !purchase && !approvedBooking) {
       return apiError("Forbidden", 403);
     }
 

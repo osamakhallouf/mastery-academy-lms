@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { apiError } from "@/lib/api-error";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/rate-limit";
 import { sendResendEmail } from "@/lib/resend";
 
@@ -30,21 +31,36 @@ function escapeHtml(s: string): string {
 
 const buildEmailHtml = (payload: Required<InquiryPayload>) => {
   const e = escapeHtml;
+  const appUrl = (env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const dashboardUrl = appUrl
+    ? `${appUrl}/en/teacher/corporate-inquiries`
+    : "";
+
   return `
-  <h2>New Corporate Training Inquiry</h2>
-  <p><strong>Course</strong>: ${e(payload.courseTitle)}</p>
-  <p><strong>Company</strong>: ${e(payload.companyName)}</p>
-  <p><strong>Employees</strong>: ${e(payload.employeesCount)}</p>
-  <p><strong>Location</strong>: ${e(payload.location)}</p>
-  <p><strong>Contact Name</strong>: ${e(payload.name)}</p>
-  <p><strong>Email</strong>: ${e(payload.email)}</p>
-  <p><strong>Phone</strong>: ${e(payload.phone)}</p>
-  ${payload.message ? `<p><strong>Message</strong>: ${e(payload.message)}</p>` : ""}
+  <h2>New Training Request</h2>
+  <p>
+    <strong>Client Name:</strong> ${e(payload.name)}<br/>
+    <strong>Company:</strong> ${e(payload.companyName)}<br/>
+    <strong>Phone:</strong> ${e(payload.phone)}<br/>
+    <strong>Email:</strong> ${e(payload.email)}<br/>
+    <strong>Location:</strong> ${e(payload.location)}<br/>
+    <strong>Employees:</strong> ${e(payload.employeesCount)}<br/>
+    <strong>Message:</strong> ${
+      payload.message ? e(payload.message) : "—"
+    }<br/>
+    <strong>Course:</strong> ${e(payload.courseTitle || "Corporate Training")}
+  </p>
+  ${
+    dashboardUrl
+      ? `<p><a href="${dashboardUrl}" style="display:inline-block;margin-top:12px;padding:8px 14px;border-radius:999px;background:#0f172a;color:#ffffff;text-decoration:none;font-size:13px;">Open Corporate Inquiries</a></p>`
+      : ""
+  }
 `;
 };
 
 const sendAdminNotification = async (payload: Required<InquiryPayload>) => {
-  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminEmail =
+    process.env.ADMIN_EMAIL || env.ADMIN_EMAIL || "osamakhallouf22@gmail.com";
 
   if (!adminEmail) {
     console.error("[CORPORATE_INQUIRY] Missing ADMIN_EMAIL.");
@@ -53,7 +69,7 @@ const sendAdminNotification = async (payload: Required<InquiryPayload>) => {
 
   await sendResendEmail({
     to: adminEmail,
-    subject: `New Corporate Inquiry: ${payload.courseTitle}`,
+    subject: `🚀 New Training Request from ${payload.companyName}`,
     html: buildEmailHtml(payload),
   });
 };
@@ -86,6 +102,7 @@ export async function POST(req: Request) {
     if (
       !payload.companyName ||
       !payload.employeesCount ||
+      !/^\d+$/.test(payload.employeesCount) ||
       !payload.location ||
       !payload.name ||
       !payload.email ||

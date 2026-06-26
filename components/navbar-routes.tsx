@@ -1,9 +1,9 @@
 "use client"
 
 import { useAuth, SignInButton, UserButton } from "@clerk/nextjs";
-import { usePathname } from "next/navigation";
+import { usePathname, Link } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { LogOut } from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { isTeacher } from "@/lib/teacher";
 
@@ -14,6 +14,8 @@ interface NavbarRoutesProps {
 export const NavbarRoutes = ({ variant = "default" }: NavbarRoutesProps) => {
   const { userId } = useAuth();
   const pathname = usePathname();
+  const locale = useLocale();
+  const tNav = useTranslations("nav");
 
   const isTeacherPage = pathname?.startsWith("/teacher");
   const isCoursePage = pathname?.includes("/courses");
@@ -26,20 +28,20 @@ export const NavbarRoutes = ({ variant = "default" }: NavbarRoutesProps) => {
           <Link href="/">
             <Button size="sm" variant="ghost">
               <LogOut className="h-4 w-4 mr-2" />
-              Exit
+              {tNav("exit")}
             </Button>
           </Link>
         ) : isTeacher(userId) ? (
           <Link href="/teacher/courses">
             <Button size="sm" variant="ghost">
-              Teacher mode
+              {tNav("teacherMode")}
             </Button>
           </Link>
         ) : null}
         {userId ? (
-          <UserButton afterSignOutUrl="/" />
+          <UserButton afterSignOutUrl={locale ? `/${locale}` : "/"} />
         ) : (
-          <SignInButton mode="modal">
+          <SignInButton mode="modal" forceRedirectUrl={locale ? `/${locale}` : undefined}>
             <Button
               size="sm"
               variant={isPublic ? "outline" : "ghost"}
@@ -49,7 +51,7 @@ export const NavbarRoutes = ({ variant = "default" }: NavbarRoutesProps) => {
                   : undefined
               }
             >
-              Sign In
+              {tNav("signIn")}
             </Button>
           </SignInButton>
         )}

@@ -1,13 +1,15 @@
 import { SafeProfile } from "@/types";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
 export default async function getSafeProfile(): Promise<SafeProfile | null> {
   try {
     const { userId } = auth();
 
     if (!userId) {
-      return redirect("/");
+      const locale = await getLocale();
+      return redirect({ href: "/", locale });
     }
 
     const user = await currentUser();

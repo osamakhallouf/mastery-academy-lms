@@ -11,18 +11,20 @@ type ResendEmailPayload = {
   attachments?: ResendEmailAttachment[];
 };
 
+export type ResendResult = { ok: true } | { ok: false; error?: string };
+
 export const sendResendEmail = async ({
   to,
   subject,
   html,
   attachments,
-}: ResendEmailPayload) => {
+}: ResendEmailPayload): Promise<ResendResult> => {
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;
 
   if (!resendApiKey || !fromEmail) {
-    console.error("[RESEND] Missing API key or from email.");
-    return { ok: false };
+    console.error("[RESEND] Missing RESEND_API_KEY or RESEND_FROM_EMAIL.");
+    return { ok: false, error: "Missing config" };
   }
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -40,5 +42,17 @@ export const sendResendEmail = async ({
     }),
   });
 
-  return { ok: response.ok };
+  if (response.ok) {
+    return { ok: true };
+  }
+
+  let errorMessage = response.statusText;
+  try {
+    const body = await response.json();
+    errorMessage = body?.message ?? body?.msg ?? body?.error ?? JSON.stringify(body);
+  } catch {
+    // ignore
+  }
+  console.error("[RESEND] Send failed:", response.status, errorMessage);
+  return { ok: false, error: errorMessage };
 };

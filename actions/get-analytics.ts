@@ -1,23 +1,6 @@
 import { db } from "@/lib/db";
-import { Course, Purchase } from "@prisma/client";
 
 import { parsePagination } from "@/lib/pagination";
-
-type PurchaseWithCourse = Purchase & {
-  course: Course;
-};
-
-const groupByCourse = (purchases: PurchaseWithCourse[]) => {
-  const grouped: { [courseTitle: string]: number } = {};
-  purchases.forEach((purchase) => {
-    const courseTitle = purchase.course.title;
-    if (!grouped[courseTitle]) {
-      grouped[courseTitle] = 0;
-    }
-    grouped[courseTitle] += purchase.course.price ?? 0;
-  });
-  return grouped;
-};
 
 export type GetAnalyticsParams = {
   take?: number;
@@ -27,11 +10,10 @@ export type GetAnalyticsParams = {
 };
 
 export type GetAnalyticsResult = {
-  data: { name: string; total: number }[];
-  total: number;
-  totalRevenue: number;
-  totalSales: number;
-  hasMore: boolean;
+  totalInquiries: number;
+  pendingInquiries: number;
+  confirmedInquiries: number;
+  inquiriesByCourse: { courseTitle: string; count: number }[];
 };
 
 export const getAnalytics = async (
@@ -39,38 +21,47 @@ export const getAnalytics = async (
   paginationInput?: GetAnalyticsParams
 ): Promise<GetAnalyticsResult> => {
   try {
-    const { skip, take } = parsePagination(paginationInput ?? {});
-
-    const purchases = await db.purchase.findMany({
-      where: { course: { userId } },
-      include: { course: true },
+    const myCourseIds = await db.course.findMany({
+      where: { userId },
+      select: { id: true, title: true },
+    });
+    const courseIds = myCourseIds.map((c) => c.id);
+    const titleById: Record<string, string> = {};
+    myCourseIds.forEach((c) => {
+      titleById[c.id] = c.title;
     });
 
-    const groupedEarnings = groupByCourse(purchases);
-    const fullData = Object.entries(groupedEarnings).map(
-      ([courseTitle, total]) => ({ name: courseTitle, total })
-    );
-    const total = fullData.length;
-    const data = fullData.slice(skip, skip + take);
+    const inquiries = await db.corporateInquiry.findMany({
+      where: { courseId: { in: courseIds } },
+      include: { confirmationLetter: true },
+    });
 
-    const totalRevenue = fullData.reduce((acc, curr) => acc + curr.total, 0);
-    const totalSales = purchases.length;
+    const totalInquiries = inquiries.length;
+    const confirmedInquiries = inquiries.filter((i) => i.confirmationLetter).length;
+    const pendingInquiries = totalInquiries - confirmedInquiries;
+
+    const countByCourse: Record<string, number> = {};
+    inquiries.forEach((i) => {
+      const key = i.courseId ? titleById[i.courseId] ?? i.courseId : "No course";
+      countByCourse[key] = (countByCourse[key] ?? 0) + 1;
+    });
+    const inquiriesByCourse = Object.entries(countByCourse).map(
+      ([courseTitle, count]) => ({ courseTitle, count })
+    ).sort((a, b) => b.count - a.count);
 
     return {
-      data,
-      total,
-      totalRevenue,
-      totalSales,
-      hasMore: skip + data.length < total,
+      totalInquiries,
+      pendingInquiries,
+      confirmedInquiries,
+      inquiriesByCourse,
     };
   } catch (error) {
     console.error("[GET_ANALYTICS]", error);
     return {
-      data: [],
-      total: 0,
-      totalRevenue: 0,
-      totalSales: 0,
-      hasMore: false,
+      totalInquiries: 0,
+      pendingInquiries: 0,
+      confirmedInquiries: 0,
+      inquiriesByCourse: [],
     };
   }
 };

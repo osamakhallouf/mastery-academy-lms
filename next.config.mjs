@@ -1,7 +1,13 @@
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ["utfs.io"],
+    remotePatterns: [
+      { protocol: "https", hostname: "utfs.io", pathname: "/**" },
+    ],
   },
   async headers() {
     return [
@@ -12,11 +18,13 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com",
+              "style-src 'self' 'unsafe-inline' https:",
               "img-src 'self' data: blob: https:",
-              "font-src 'self'",
+              "font-src 'self' https:",
               "connect-src 'self' https:",
+              "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
@@ -35,5 +43,5 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);
 

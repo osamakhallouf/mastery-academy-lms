@@ -1,31 +1,62 @@
-import { Category, Course, UserProgress } from "@prisma/client";
+import { Category, Course } from "@prisma/client";
 
 import { parsePagination } from "@/lib/pagination";
 import { db } from "@/lib/db";
 
-type CourseWithProgressWithCategory = Course & {
+export type CourseRunForList = {
+  id: string;
+  courseId: string;
+  startDate: Date;
+  endDate: Date | null;
+  location: string | null;
+  capacity: number | null;
+};
+
+type CourseWithCategory = Course & {
   category: Category | null;
-  chapters: { id: string; userProgress?: UserProgress[] }[];
-  progress: number | null;
+  chapters: { id: string }[];
+  courseRuns?: CourseRunForList[];
 };
 
 const getCoursesWhere = (opts: {
   title?: string;
   categoryId?: string | null;
-}) => ({
-  isPublished: true,
-  ...(opts.title != null && opts.title !== ""
-    ? { title: { contains: opts.title, mode: "insensitive" as const } }
-    : {}),
-  ...(opts.categoryId != null && opts.categoryId !== ""
-    ? { categoryId: opts.categoryId }
-    : {}),
-});
+  city?: string | null;
+  month?: string | null; // YYYY-MM
+}) => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  type RunWhere = {
+    startDate: { gte: Date; lt?: Date };
+    location?: { equals: string; mode: "insensitive" };
+  };
+  let courseRunWhere: RunWhere = { startDate: { gte: now } };
+  if (opts.month && /^\d{4}-\d{2}$/.test(opts.month)) {
+    const [y, m] = opts.month.split("-").map(Number);
+    courseRunWhere.startDate = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+  }
+  if (opts.city != null && opts.city !== "") {
+    courseRunWhere.location = { equals: opts.city, mode: "insensitive" as const };
+  }
+  const needRunFilter = (opts.city != null && opts.city !== "") || (opts.month != null && opts.month !== "");
+  return {
+    isPublished: true,
+    ...(opts.title != null && opts.title !== ""
+      ? { title: { contains: opts.title, mode: "insensitive" as const } }
+      : {}),
+    ...(opts.categoryId != null && opts.categoryId !== ""
+      ? { categoryId: opts.categoryId }
+      : {}),
+    ...(needRunFilter ? { courseRuns: { some: courseRunWhere } } : {}),
+  };
+};
 
 export type GetCoursesParams = {
   userId: string;
   title?: string;
   categoryId?: string;
+  city?: string;
+  month?: string; // YYYY-MM
   take?: number;
   skip?: number;
   page?: number;
@@ -33,7 +64,7 @@ export type GetCoursesParams = {
 };
 
 export type GetCoursesResult = {
-  courses: CourseWithProgressWithCategory[];
+  courses: (CourseWithCategory & { courseRuns?: CourseRunForList[] })[];
   total: number;
   hasMore: boolean;
 };
@@ -42,11 +73,20 @@ export const getCourses = async ({
   userId,
   title,
   categoryId,
+  city,
+  month,
   ...paginationInput
 }: GetCoursesParams): Promise<GetCoursesResult> => {
   try {
     const { skip, take } = parsePagination(paginationInput);
-    const where = getCoursesWhere({ title, categoryId });
+    const where = getCoursesWhere({ title, categoryId, city, month });
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    let runWhere: { startDate: { gte: Date; lt?: Date } } = { startDate: { gte: now } };
+    if (month && /^\d{4}-\d{2}$/.test(month as string)) {
+      const [y, m] = month.split("-").map(Number);
+      runWhere = { startDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) } };
+    }
 
     const [total, courses] = await Promise.all([
       db.course.count({ where }),
@@ -56,19 +96,20 @@ export const getCourses = async ({
           category: true,
           chapters: {
             where: { isPublished: true },
+            select: { id: true },
+          },
+          courseRuns: {
+            where: runWhere,
             select: {
               id: true,
-              userProgress: userId
-                ? {
-                    where: { userId, isCompleted: true },
-                    select: { id: true },
-                  }
-                : false,
+              courseId: true,
+              startDate: true,
+              endDate: true,
+              location: true,
+              capacity: true,
             },
+            orderBy: { startDate: "asc" },
           },
-          purchases: userId
-            ? { where: { userId } }
-            : false,
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -76,25 +117,8 @@ export const getCourses = async ({
       }),
     ]);
 
-    const coursesWithProgress: CourseWithProgressWithCategory[] = courses.map(
-      (course) => {
-        if (!userId || (course.purchases?.length ?? 0) === 0) {
-          return { ...course, progress: null };
-        }
-        const totalChapters = course.chapters.length;
-        const completedChapters = course.chapters.filter(
-          (ch) => (ch.userProgress?.length ?? 0) > 0
-        ).length;
-        const progress =
-          totalChapters === 0
-            ? 0
-            : Math.round((completedChapters / totalChapters) * 100);
-        return { ...course, progress };
-      }
-    );
-
     return {
-      courses: coursesWithProgress,
+      courses: courses as (CourseWithCategory & { courseRuns?: CourseRunForList[] })[],
       total,
       hasMore: skip + courses.length < total,
     };

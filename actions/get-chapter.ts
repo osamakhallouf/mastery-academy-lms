@@ -47,9 +47,21 @@ export const getChapter = async ({
             },
         });
 
+        const approvedBooking = await db.booking.findFirst({
+            where: {
+                userId,
+                courseId,
+                status: "approved",
+            },
+        });
+
         const hasAccessByPurchase = purchase !== null;
+        const hasAccessByApprovedBooking = approvedBooking !== null;
         const hasAccessByFreeChapter = chapter.isFree === true;
-        const hasAccess = hasAccessByPurchase || hasAccessByFreeChapter;
+        const hasAccess =
+            hasAccessByPurchase ||
+            hasAccessByApprovedBooking ||
+            hasAccessByFreeChapter;
 
         let muxData = null;
         let attachments: Attachment[] = [];
